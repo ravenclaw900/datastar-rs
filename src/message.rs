@@ -1,15 +1,27 @@
+//! Helpers for creating datastar SSE messages.
+
 use std::time::Duration;
 
+/// Defines various strategies for merging fragments.
 #[derive(Debug, Clone, Copy)]
 pub enum MergeStrategy {
+    /// Merge the fragment using Idiomorph (default).
     MorphElement,
+    /// Replace target's innerHTML with the fragment.
     InnerHtml,
+    /// Replace target's outerHTML with the fragment.
     OuterHtml,
+    /// Prepend the fragment to the target's children.
     PrependElement,
+    /// Append the fragment to the target's children.
     AppendElement,
+    /// Insert the fragment before the target.
     BeforeElement,
+    /// Insert the fragment after the target.
     AfterElement,
+    /// Delete the target.
     DeleteElement,
+    /// Update attributes on the target to match the fragment.
     AttributesOnly,
 }
 
@@ -29,6 +41,7 @@ impl MergeStrategy {
     }
 }
 
+/// Configuration for how to place a fragment on the page.
 #[derive(Debug, Default, Clone)]
 pub struct FragmentConfig {
     merge: Option<MergeStrategy>,
@@ -37,20 +50,30 @@ pub struct FragmentConfig {
 }
 
 impl FragmentConfig {
+    /// Create a new [`FragmentConfig`] with default options.
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_merge(mut self, merge_strategy: MergeStrategy) -> Self {
-        self.merge = Some(merge_strategy);
+    /// Select the merge strategy that datastar will use to merge the fragment and the target.
+    ///
+    /// For more information, see [`MergeStrategy`]
+    pub fn with_merge(mut self, merge: MergeStrategy) -> Self {
+        self.merge = Some(merge);
         self
     }
 
+    /// Select the target element of the merge process.
+    ///
+    /// If not specified, will default to the element initiating the request.
     pub fn with_selector(mut self, selector: impl Into<String>) -> Self {
         self.selector = Some(selector.into());
         self
     }
 
+    /// How long to settle the element for.
+    ///
+    /// If not specified, defaults to 500ms.
     pub fn with_settle(mut self, settle: Duration) -> Self {
         self.settle = Some(
             settle
@@ -62,6 +85,18 @@ impl FragmentConfig {
     }
 }
 
+/// A datastar SSE message.
+///
+/// # Example
+/// Build a new fragment message.
+/// ```
+/// # use datastar::message::{DatastarMessage, FragmentConfig};
+///
+/// DatastarMessage::new_fragment(
+///     Some(r#"<div id="hello-world">Hello, world!</div>"#),
+///     FragmentConfig::new().with_selector("#hello-world")
+/// );
+/// ```
 #[derive(Debug, Clone)]
 pub struct DatastarMessage(String);
 
@@ -77,6 +112,10 @@ impl DatastarMessage {
         msg.push('\n');
     }
 
+    /// Create a new SSE message that sends a fragment to the page.
+    ///
+    /// If the fragment is `None`, it will default to an empty `div`.
+    /// This can be useful when deleting an element.
     pub fn new_fragment(fragment: Option<&str>, config: FragmentConfig) -> Self {
         let mut inner = String::from(Self::EVENT_FRAGMENT);
 
@@ -101,6 +140,7 @@ impl DatastarMessage {
         Self(inner)
     }
 
+    /// Create a new SSE message that causes a client-side redirect.
     pub fn new_redirect(path: &str) -> Self {
         let mut inner = String::from(Self::EVENT_FRAGMENT);
 
@@ -110,6 +150,7 @@ impl DatastarMessage {
         Self(inner)
     }
 
+    /// Create a new SSE message that throws an error on the client.
     pub fn new_error(msg: &str) -> Self {
         let mut inner = String::from(Self::EVENT_FRAGMENT);
 
@@ -119,6 +160,9 @@ impl DatastarMessage {
         Self(inner)
     }
 
+    /// Create a new SSE message that updates the client-side store.
+    ///
+    /// Will serialize the provided object into JSON, and returns an error if that fails.
     pub fn new_signal<T: serde::Serialize>(obj: &T) -> Result<Self, serde_json::Error> {
         let mut inner = String::from(Self::EVENT_SIGNAL);
 
@@ -131,6 +175,7 @@ impl DatastarMessage {
         Ok(Self(inner))
     }
 
+    /// Get the message as a [`String`].
     pub fn into_string(self) -> String {
         self.0
     }

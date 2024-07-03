@@ -1,17 +1,35 @@
+//! Helpers for creating `text/event-stream` responses.
+
 use futures_core::{FusedStream, Stream};
 
 use crate::message::DatastarMessage;
 
+/// A complete datastar response, possibly consisting of multiple messages.
+///
+/// # Example
+/// ```
+/// # use datastar::response::FullDatastarResponse;
+/// # use datastar::message::DatastarMessage;
+/// let msg = DatastarMessage::new_redirect("/");
+/// let resp = FullDatastarResponse::from(msg);
+/// ```
 #[derive(Debug, Clone)]
 pub struct FullDatastarResponse(String);
 
 impl FullDatastarResponse {
+    /// Create an empty response that messages can be pushed onto later.
     pub fn new_empty() -> Self {
         Self(String::new())
     }
 
+    /// Push a `DatastarMessage` onto this response.
     pub fn push_msg(&mut self, msg: DatastarMessage) {
         self.0.push_str(&msg.into_string())
+    }
+
+    /// Get this response as a [`String`].
+    pub fn into_string(self) -> String {
+        self.0
     }
 }
 
@@ -36,14 +54,29 @@ impl axum_core::response::IntoResponse for FullDatastarResponse {
     }
 }
 
+/// A streaming datastar response.
+///
+/// # Example
+/// ```
+/// # use datastar::response::StreamingDatastarResponse;
+/// # use datastar::message::{DatastarMessage, FragmentConfig};
+/// let stream = async_stream::stream! {
+///     DatastarMessage::new_fragment(Some("<div>Running computation</div>"), FragmentConfig::new());
+///     // Do stuff...
+///     DatastarMessage::new_fragment(Some("<div>Done!</div>"), FragmentConfig::new());
+/// };
+/// let resp = StreamingDatastarResponse::new(stream);
+/// ```
 #[derive(Debug, Clone)]
 pub struct StreamingDatastarResponse<S>(S);
 
 impl<S> StreamingDatastarResponse<S> {
+    /// Create a [`StreamingDatastarResponse`] from a [`Stream`] of [`DatastarMessage`]s.
     pub fn new(stream: S) -> Self {
         Self(stream)
     }
 
+    /// Extract the messages as a [`Stream`].
     pub fn into_stream(self) -> impl Stream<Item = DatastarMessage>
     where
         S: Stream<Item = DatastarMessage>,
@@ -51,6 +84,7 @@ impl<S> StreamingDatastarResponse<S> {
         self.0
     }
 
+    /// Extract the messages as a [`FusedStream`].
     pub fn into_fused_stream(self) -> impl FusedStream<Item = DatastarMessage>
     where
         S: FusedStream<Item = DatastarMessage>,
