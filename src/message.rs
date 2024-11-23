@@ -36,7 +36,7 @@ impl MergeStrategy {
             Self::BeforeElement => "before_element",
             Self::AfterElement => "after_element",
             Self::DeleteElement => "delete_element",
-            Self::AttributesOnly => "upsert_attributes",
+            Self::AttributesOnly => "upsertAttributes",
         }
     }
 }
@@ -46,7 +46,8 @@ impl MergeStrategy {
 pub struct FragmentConfig {
     merge: Option<MergeStrategy>,
     selector: Option<String>,
-    settle: Option<u32>,
+    settle_duration: Option<u32>,
+    use_view_transition: Option<bool>,
 }
 
 impl FragmentConfig {
@@ -73,14 +74,19 @@ impl FragmentConfig {
 
     /// How long to settle the element for.
     ///
-    /// If not specified, defaults to 500ms.
-    pub fn with_settle(mut self, settle: Duration) -> Self {
-        self.settle = Some(
-            settle
+    /// If not specified, defaults to 300ms.
+    pub fn with_settle(mut self, settle_duration: Duration) -> Self {
+        self.settle_duration = Some(
+            settle_duration
                 .as_millis()
                 .try_into()
                 .expect("settle time should not be >u32::MAX"),
         );
+        self
+    }
+
+    pub fn with_use_view_transition(mut self, use_view_transition: impl Into<bool>) -> Self {
+        self.use_view_transition = Some(use_view_transition.into());
         self
     }
 }
@@ -101,8 +107,8 @@ impl FragmentConfig {
 pub struct DatastarMessage(String);
 
 impl DatastarMessage {
-    const EVENT_FRAGMENT: &'static str = "event: datastar-fragment\n";
-    const EVENT_SIGNAL: &'static str = "event: datastar-signal\n";
+    const EVENT_FRAGMENT: &'static str = "event: datastar-merge-fragments\n";
+    const EVENT_SIGNAL: &'static str = "event: datastar-merge-signals\n";
 
     fn push_data(msg: &mut String, key: &str, val: &str) {
         msg.push_str("data: ");
@@ -127,12 +133,12 @@ impl DatastarMessage {
             Self::push_data(&mut inner, "selector", &selector);
         }
 
-        if let Some(settle) = config.settle {
-            Self::push_data(&mut inner, "settle", &settle.to_string());
+        if let Some(settle_duration) = config.settle_duration {
+            Self::push_data(&mut inner, "settleDuration", &settle_duration.to_string());
         }
 
         if let Some(fragment) = fragment {
-            Self::push_data(&mut inner, "fragment", fragment);
+            Self::push_data(&mut inner, "fragments", fragment);
         }
 
         inner.push('\n');
