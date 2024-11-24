@@ -1,5 +1,6 @@
 //! Helpers for creating datastar SSE messages.
 pub mod fragments;
+pub mod script;
 pub mod signals;
 
 /// A datastar SSE message.
@@ -18,11 +19,11 @@ pub mod signals;
 pub struct DatastarMessage(String);
 
 impl DatastarMessage {
-    const EVENT_FRAGMENT: &'static str = "event: datastar-merge-fragments\n";
-    const EVENT_SIGNAL: &'static str = "event: datastar-merge-signals\n";
-    const EVENT_EXECUTE_SCRIPT: &'static str = "event: datastar-execute-script\n";
+    const EVENT_FRAGMENT_MERGE: &'static str = "event: datastar-merge-fragments\n";
+    const EVENT_SIGNAL_MERGE: &'static str = "event: datastar-merge-signals\n";
     const EVENT_FRAGMENT_REMOVE: &'static str = "event: datastar-remove-fragments\n";
     const EVENT_SIGNAL_REMOVE: &'static str = "event: datastar-remove-signals\n";
+    const EVENT_EXECUTE_SCRIPT: &'static str = "event: datastar-execute-script\n";
 
     fn push_data(msg: &mut String, key: &str, val: &str) {
         msg.push_str("data: ");
@@ -46,7 +47,7 @@ impl DatastarMessage {
     ///
     /// Will serialize the provided object into JSON, and returns an error if that fails.
     pub fn merge_signals<T: serde::Serialize>(obj: &T) -> Result<Self, serde_json::Error> {
-        let mut inner = String::from(Self::EVENT_SIGNAL);
+        let mut inner = String::from(Self::EVENT_SIGNAL_MERGE);
 
         let serialized_obj = serde_json::to_string(obj)?;
 

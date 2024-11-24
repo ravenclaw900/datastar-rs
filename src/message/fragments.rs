@@ -96,7 +96,7 @@ impl MergeFragmentsConfig {
     /// How long to settle the element for.
     ///
     /// If not specified, defaults to 300ms.
-    pub fn with_settle(mut self, settle_duration: Duration) -> Self {
+    pub fn with_settle_duration(mut self, settle_duration: Duration) -> Self {
         self.settle_duration = Some(
             settle_duration
                 .as_millis()
@@ -176,11 +176,8 @@ pub trait FragmentsMessage {
 
 impl FragmentsMessage for DatastarMessage {
     /// Create a new SSE message that sends a fragment to the page.
-    ///
-    /// If the fragment is `None`, it will default to an empty `div`.
-    /// This can be useful when deleting an element.
     fn merge_fragments(fragments: &str, config: MergeFragmentsConfig) -> Self {
-        let mut inner = String::from(Self::EVENT_FRAGMENT);
+        let mut inner = String::from(Self::EVENT_FRAGMENT_MERGE);
 
         if let Some(event_id) = config.event_id {
             Self::push_data(&mut inner, "eventId", &event_id);
@@ -219,7 +216,7 @@ impl FragmentsMessage for DatastarMessage {
 
     /// Create a new SSE message that deletes fragments from the page.
     fn remove_fragments(selector: &str, config: RemoveFragmentsConfig) -> Self {
-        let mut inner = String::from(Self::EVENT_FRAGMENT);
+        let mut inner = String::from(Self::EVENT_FRAGMENT_REMOVE);
 
         if let Some(event_id) = config.event_id {
             Self::push_data(&mut inner, "eventId", &event_id);
