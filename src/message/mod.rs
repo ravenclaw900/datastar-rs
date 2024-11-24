@@ -1,6 +1,6 @@
 //! Helpers for creating datastar SSE messages.
 
-use std::time::Duration;
+use core::time::Duration;
 
 /// Defines various strategies for merging fragments.
 #[derive(Debug, Clone, Copy)]
@@ -43,24 +43,43 @@ impl MergeStrategy {
 
 /// Configuration for how to place a fragment on the page.
 #[derive(Debug, Default, Clone)]
-pub struct FragmentConfig {
-    merge: Option<MergeStrategy>,
+pub struct MergeFragmentsConfig {
+    event_id: Option<String>,
+    retry_duration: Option<u32>,
     selector: Option<String>,
+    merge_mode: Option<MergeStrategy>,
     settle_duration: Option<u32>,
     use_view_transition: Option<bool>,
 }
 
-impl FragmentConfig {
+impl MergeFragmentsConfig {
     /// Create a new [`FragmentConfig`] with default options.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Optionally, provide an ID for an event.
+    pub fn with_event_id(mut self, event_id: impl Into<String>) -> Self {
+        self.event_id = Some(event_id.into());
+        self
+    }
+
+    /// Override the default Retry duration
+    pub fn with_retry_duration(mut self, retry_duration: Duration) -> Self {
+        self.retry_duration = Some(
+            retry_duration
+                .as_millis()
+                .try_into()
+                .expect("retry duration should not be >u32::MAX"),
+        );
+        self
+    }
+
     /// Select the merge strategy that datastar will use to merge the fragment and the target.
     ///
     /// For more information, see [`MergeStrategy`]
-    pub fn with_merge(mut self, merge: MergeStrategy) -> Self {
-        self.merge = Some(merge);
+    pub fn with_merge(mut self, merge_mode: MergeStrategy) -> Self {
+        self.merge_mode = Some(merge_mode);
         self
     }
 
@@ -85,6 +104,9 @@ impl FragmentConfig {
         self
     }
 
+    /// Use view transitions?
+    ///
+    /// If not specified, defaults is false
     pub fn with_use_view_transition(mut self, use_view_transition: impl Into<bool>) -> Self {
         self.use_view_transition = Some(use_view_transition.into());
         self
@@ -109,6 +131,9 @@ pub struct DatastarMessage(String);
 impl DatastarMessage {
     const EVENT_FRAGMENT: &'static str = "event: datastar-merge-fragments\n";
     const EVENT_SIGNAL: &'static str = "event: datastar-merge-signals\n";
+    const EVENT_EXECUTE_SCRIPT: &'static str = "event: datastar-execute-script\n";
+    const EVENT_FRAGMENT_REMOVE: &'static str = "event: datastar-remove-fragments\n";
+    const EVENT_SIGNAL_REMOVE: &'static str = "event: datastar-remove-signals\n";
 
     fn push_data(msg: &mut String, key: &str, val: &str) {
         msg.push_str("data: ");
@@ -122,10 +147,18 @@ impl DatastarMessage {
     ///
     /// If the fragment is `None`, it will default to an empty `div`.
     /// This can be useful when deleting an element.
-    pub fn new_fragment(fragment: Option<&str>, config: FragmentConfig) -> Self {
+    pub fn merge_fragments(fragments: Option<Vec<String>>, config: MergeFragmentsConfig) -> Self {
         let mut inner = String::from(Self::EVENT_FRAGMENT);
 
-        if let Some(merge) = config.merge {
+        if let Some(event_id) = config.event_id {
+            Self::push_data(&mut inner, "eventId", &event_id);
+        }
+
+        if let Some(retry_duration) = config.retry_duration {
+            Self::push_data(&mut inner, "retryDuration", &retry_duration.to_string());
+        }
+
+        if let Some(merge) = config.merge_mode {
             Self::push_data(&mut inner, "merge", merge.as_datastar_name());
         }
 
@@ -137,8 +170,16 @@ impl DatastarMessage {
             Self::push_data(&mut inner, "settleDuration", &settle_duration.to_string());
         }
 
-        if let Some(fragment) = fragment {
-            Self::push_data(&mut inner, "fragments", fragment);
+        if let Some(use_view_transition) = config.use_view_transition {
+            Self::push_data(
+                &mut inner,
+                "useViewTransition",
+                &use_view_transition.to_string(),
+            );
+        }
+
+        if let Some(fragments) = fragments {
+            Self::push_data(&mut inner, "fragments", &fragments.join(" "));
         }
 
         inner.push('\n');
@@ -146,30 +187,26 @@ impl DatastarMessage {
         Self(inner)
     }
 
-    /// Create a new SSE message that causes a client-side redirect.
-    pub fn new_redirect(path: &str) -> Self {
-        let mut inner = String::from(Self::EVENT_FRAGMENT);
-
-        Self::push_data(&mut inner, "redirect", path);
-        inner.push('\n');
-
-        Self(inner)
+    /// Create a new SSE message that deletes fragments from the page.
+    pub fn remove_fragments(config: RemoveFragmentsConfig) {
+        let mut inner = String::from(Self::EVENT_FRAGMENT_REMOVE);
+        todo!()
     }
 
-    /// Create a new SSE message that throws an error on the client.
-    pub fn new_error(msg: &str) -> Self {
-        let mut inner = String::from(Self::EVENT_FRAGMENT);
+    /// Create a new SSE message that deletes signals from the store.
+    pub fn remove_signals() {
+        todo!()
+    }
 
-        Self::push_data(&mut inner, "error", msg);
-        inner.push('\n');
-
-        Self(inner)
+    /// Create a new SSE message that sends a fragment to the page.
+    pub fn execute_script() {
+        todo!()
     }
 
     /// Create a new SSE message that updates the client-side store.
     ///
     /// Will serialize the provided object into JSON, and returns an error if that fails.
-    pub fn new_signal<T: serde::Serialize>(obj: &T) -> Result<Self, serde_json::Error> {
+    pub fn merge_signals<T: serde::Serialize>(obj: &T) -> Result<Self, serde_json::Error> {
         let mut inner = String::from(Self::EVENT_SIGNAL);
 
         let serialized_obj = serde_json::to_string(obj)?;
