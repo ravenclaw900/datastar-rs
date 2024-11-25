@@ -4,9 +4,10 @@ use ::core::marker::Send;
 use async_trait::async_trait;
 
 use axum_core::{
-    extract::FromRequestParts,
+    extract::{FromRequest, FromRequestParts, Request},
     response::{IntoResponse, Response},
 };
+use bytes::Bytes;
 use http::{request::Parts, StatusCode, Uri};
 use serde::de::DeserializeOwned;
 
@@ -102,5 +103,69 @@ where
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         Self::try_from_uri(&parts.uri)
+    }
+}
+
+/// An error that can occur while extracting datastar query string from a GET request sent by datastar.
+#[non_exhaustive]
+pub enum DatastarJsonRejection {
+    FailedToDecodeBytes,
+    FailedToDeserializeJson,
+}
+
+impl IntoResponse for DatastarJsonRejection {
+    /// Create an axum response from the error type DatastarQueryRejection
+    fn into_response(self) -> Response {
+        let msg = "Failed to deserialize json body";
+
+        Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(msg.into())
+            .unwrap()
+    }
+}
+
+/// The parsed Json of the datastar POST, PUT, PATCH, DELETE requests
+pub struct DatastarJson<T>(pub T);
+
+/// A non GET Request submitted by datastar will be a Json
+/// But, axum::extract::Json checks the headers for content-type: application/json
+/// So, we create a DatastarJson extractor
+
+/// ```
+/// use datastar::request::DatastarJson;
+/// use axum_core::response::IntoResponse;
+/// use serde::Deserialize;
+///
+/// #[derive(Deserialize)]
+/// struct Store {
+///     theme: String,
+///     hidden: bool,
+/// }
+///
+/// // Create an axum handler with DatastarJson extractor
+///
+/// async fn handle_request(DatastarJson(Store { theme, hidden }): DatastarJson<Store>) -> impl IntoResponse {
+///     // Do something with theme and hidden
+///     todo!()
+/// }
+/// ```
+#[async_trait]
+impl<T, S> FromRequest<S> for DatastarJson<T>
+where
+    T: DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = DatastarJsonRejection;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let bytes = Bytes::from_request(req, state)
+            .await
+            .map_err(|_| DatastarJsonRejection::FailedToDecodeBytes)?;
+
+        let value = serde_json::from_slice(&bytes)
+            .map_err(|_| DatastarJsonRejection::FailedToDeserializeJson)?;
+
+        Ok(DatastarJson(value))
     }
 }
