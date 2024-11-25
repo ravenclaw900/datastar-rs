@@ -10,7 +10,8 @@ use crate::message::DatastarMessage;
 /// ```
 /// # use datastar::response::FullDatastarResponse;
 /// # use datastar::message::DatastarMessage;
-/// let msg = DatastarMessage::new_redirect("/");
+/// # use datastar::message::fragments::{MergeFragmentsConfig, FragmentsMessage};
+/// let msg = DatastarMessage::merge_fragments("<div>Running computation</div>", MergeFragmentsConfig::new());
 /// let resp = FullDatastarResponse::from(msg);
 /// ```
 #[derive(Debug, Clone)]
@@ -59,11 +60,12 @@ impl axum_core::response::IntoResponse for FullDatastarResponse {
 /// # Example
 /// ```
 /// # use datastar::response::StreamingDatastarResponse;
-/// # use datastar::message::{DatastarMessage, FragmentConfig};
+/// # use datastar::message::DatastarMessage;
+/// use datastar::message::fragments::{MergeFragmentsConfig, FragmentsMessage};
 /// let stream = async_stream::stream! {
-///     DatastarMessage::new_fragment(Some("<div>Running computation</div>"), FragmentConfig::new());
+///     DatastarMessage::merge_fragments("<div>Running computation</div>", MergeFragmentsConfig::new());
 ///     // Do stuff...
-///     DatastarMessage::new_fragment(Some("<div>Done!</div>"), FragmentConfig::new());
+///     DatastarMessage::merge_fragments("<div>Done!</div>", MergeFragmentsConfig::new());
 /// };
 /// let resp = StreamingDatastarResponse::new(stream);
 /// ```
