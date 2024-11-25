@@ -116,7 +116,10 @@ pub enum DatastarJsonRejection {
 impl IntoResponse for DatastarJsonRejection {
     /// Create an axum response from the error type DatastarQueryRejection
     fn into_response(self) -> Response {
-        let msg = "Failed to deserialize json body";
+        let msg = match self {
+            DatastarJsonRejection::FailedToDecodeBytes => "Failed to get request body as bytes",
+            DatastarJsonRejection::FailedToDeserializeJson => "Failed to deserialize Json bytes",
+        };
 
         Response::builder()
             .status(StatusCode::BAD_REQUEST)
