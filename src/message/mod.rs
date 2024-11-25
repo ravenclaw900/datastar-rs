@@ -8,11 +8,12 @@ pub mod signals;
 /// # Example
 /// Build a new fragment message.
 /// ```
-/// # use datastar::message::{DatastarMessage, FragmentConfig};
+/// use datastar::message::DatastarMessage;
+/// use datastar::message::fragments::{MergeFragmentsConfig, FragmentsMessage};
 ///
-/// DatastarMessage::new_fragment(
-///     Some(r#"<div id="hello-world">Hello, world!</div>"#),
-///     FragmentConfig::new().with_selector("#hello-world")
+/// DatastarMessage::merge_fragments(
+///     r#"<div id="hello-world">Hello, world!</div>"#,
+///     MergeFragmentsConfig::new().with_selector("#hello-world")
 /// );
 /// ```
 #[derive(Debug, Clone)]
@@ -31,16 +32,6 @@ impl DatastarMessage {
         msg.push(' ');
         msg.push_str(val);
         msg.push('\n');
-    }
-
-    /// Create a new SSE message that deletes signals from the store.
-    pub fn remove_signals() {
-        todo!()
-    }
-
-    /// Create a new SSE message that sends a fragment to the page.
-    pub fn execute_script() {
-        todo!()
     }
 
     /// Create a new SSE message that updates the client-side store.
