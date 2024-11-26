@@ -1,5 +1,7 @@
 use core::time::Duration;
 
+use http::Uri;
+
 use super::DatastarMessage;
 
 /// Configuration for how to run scripts
@@ -50,6 +52,7 @@ impl ExecuteScriptConfig {
 
 pub trait ExecuteScriptMessage {
     fn execute_script(script: &str, config: ExecuteScriptConfig) -> Self;
+    fn redirect(url: &Uri) -> Self;
 }
 
 impl ExecuteScriptMessage for DatastarMessage {
@@ -77,5 +80,13 @@ impl ExecuteScriptMessage for DatastarMessage {
 
         inner.push('\n');
         Self(inner)
+    }
+
+    /// Create an SSE message for client side redirect
+    fn redirect(uri: &Uri) -> Self {
+        Self::execute_script(
+            &format!("window.location = {}", uri),
+            ExecuteScriptConfig::new(),
+        )
     }
 }
