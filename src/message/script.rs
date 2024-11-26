@@ -85,7 +85,7 @@ impl ExecuteScriptMessage for DatastarMessage {
     /// Create an SSE message for client side redirect
     fn redirect(uri: &Uri) -> Self {
         Self::execute_script(
-            &format!("window.location = {}", uri),
+            &format!("window.location = '{}'", uri),
             ExecuteScriptConfig::new(),
         )
     }
